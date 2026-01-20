@@ -46,6 +46,7 @@ src/
    - Pluggable architecture supporting multiple AI providers
    - `chat.ts`: Main orchestrator with engine abstraction
    - `geminiNanoChat.ts`: Chrome's built-in AI integration
+   - `zhipuGlmChat.ts`: Zhipu GLM API integration
    - `openAiChat.ts`: OpenAI API fallback
 
 2. **Speech Recognition** (`src/features/transcription/`)
@@ -71,9 +72,9 @@ src/
 
 ### Application Flow
 
-1. **Initialization**: Load VRM model, initialize AI models, setup speech synthesis
-2. **User Input**: Speech transcription via Chrome APIs or Web Speech API
-3. **AI Processing**: Generate response with emotional tags using selected engine
+1. **Initialization**: Load VRM model, initialize speech synthesis
+2. **User Input**: Speech transcription via Web Speech API
+3. **AI Processing**: Generate response with emotional tags using Zhipu GLM or OpenAI
 4. **Character Response**:
    - Parse emotional tags (e.g., `[smile]`, `[surprised]`)
    - Generate speech synthesis with appropriate voice parameters
@@ -84,10 +85,40 @@ src/
 - **Frontend**: React 19.1.0 with TypeScript strict mode
 - **Build**: Vite 6.2.4 with React plugin
 - **3D**: Three.js 0.176.0 with @pixiv/three-vrm 3.4.0
-- **AI**: Chrome Built-in APIs (primary), OpenAI API (fallback)
-- **Speech**: Kokoro.js (synthesis), Chrome Multimodal APIs/Web Speech API (transcription)
+- **AI**: Zhipu GLM API, OpenAI API (fallback)
+- **Speech**: Kokoro.js (synthesis), Web Speech API (transcription)
 - **UI**: Tailwind CSS 3.3.1 with Charcoal UI components
 - **State**: React hooks with localStorage persistence
+
+## AI Engine Options
+
+## Disabled Features
+
+Due to the unavailability of Chrome's Built-in AI Multimodal APIs, the following features have been disabled:
+
+- **Gemini Nano Chat Engine**: Chrome's local AI integration for chat
+- **Gemini Nano Transcription**: Chrome's multimodal audio transcription
+- All local AI processing functionality
+
+The application now uses:
+- **Web Speech API** for voice transcription
+- **Zhipu GLM** (default) or **OpenAI API** for chat functionality
+
+The application supports two AI engines:
+
+1. **Zhipu GLM** (Default)
+   - API endpoint: `https://open.bigmodel.cn/api/paas/v4/chat/completions`
+   - Model: `glm-4`
+   - Requires API key from Zhipu AI platform
+   - Streaming responses supported
+
+2. **OpenAI**
+   - API endpoint: `https://api.openai.com/v1/chat/completions`
+   - Model: `gpt-3.5-turbo`
+   - Requires API key from OpenAI
+   - Streaming responses supported
+
+The default engine can be changed by modifying `DEFAULT_CHAT_ENGINE` in `src/features/chat/chat.ts`.
 
 ## Important Configuration
 
@@ -99,9 +130,9 @@ import { useChat } from "@/features/chat/chat";
 ```
 
 ### Environment Requirements
-- **Chrome Browser**: Required for full functionality with Chrome Built-in AI APIs
+- **Web Browser**: Modern browser with Web Speech API support
 - **WebGPU Support**: Recommended for optimal 3D performance
-- **AI API Access**: Chrome AI configuration needed (see README.md)
+- **AI API Access**: Zhipu AI or OpenAI API key required for chat functionality
 
 ### Key Dependencies
 - `@pixiv/three-vrm`: VRM model rendering and animation
@@ -117,16 +148,17 @@ import { useChat } from "@/features/chat/chat";
 - Character expressions and emotions mapped to VRM blendshapes
 
 ### Speech Processing
-- **Input**: Chrome Multimodal APIs → Web Speech API (fallback)
+- **Input**: Web Speech API
 - **Output**: Kokoro.js with Koeiro parameters for voice control
 - **Emotion Tags**: Parsed from AI responses and applied to character expressions
 
 ### AI Engine Selection
-- Default: Gemini Nano (Chrome's built-in AI)
-- Fallback: OpenAI API (requires API key)
+- Default: Zhipu GLM
+- Alternative option: OpenAI API
+- API keys required for both engines
 - Switchable via settings UI with immediate effect
 
 ### Browser Compatibility
-- Chrome with Built-in AI APIs (full feature set)
-- Other browsers with Web Speech API support (limited features)
+- All modern browsers with Web Speech API support
+- No Chrome-specific AI dependencies
 - Production build available on GitHub Pages

@@ -18,13 +18,15 @@ const CHARACTER_SETTINGS_DISABLED = import.meta.env
 type Props = {
   chatEngine: ChatEngine;
   openAiKey: string;
+  zhipuKey: string;
   systemPrompt: string;
   chatLog: Message[];
   voiceEngine: VoiceEngine;
   koeiroParam: KoeiroParam;
   koeiromapKey: string;
   onClickClose: () => void;
-  onChangeAiKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onChangeOpenAiKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onChangeZhipuKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeSystemPrompt: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onChangeChatLog: (index: number, text: string) => void;
   onChangeKoeiroParam: (x: number, y: number) => void;
@@ -37,6 +39,7 @@ type Props = {
 export const Settings = ({
   chatEngine,
   openAiKey,
+  zhipuKey,
   chatLog,
   systemPrompt,
   voiceEngine,
@@ -44,7 +47,8 @@ export const Settings = ({
   koeiromapKey,
   onClickClose,
   onChangeSystemPrompt,
-  onChangeAiKey,
+  onChangeOpenAiKey,
+  onChangeZhipuKey,
   onChangeChatLog,
   onChangeKoeiroParam,
   onClickOpenVrmFile,
@@ -111,6 +115,50 @@ export const Settings = ({
             />
           </div>
           <div className="my-24 typography-32 font-bold">Settings</div>
+
+          <div className="my-24">
+            <div className="my-16 typography-20 font-bold">
+              AI Engine
+            </div>
+            <div className="flex gap-16 my-8">
+              <button
+                className={`px-16 py-8 rounded-8 ${
+                  chatEngine === "Zhipu GLM"
+                    ? "bg-secondary text-white"
+                    : "bg-surface1 hover:bg-surface1-hover"
+                }`}
+                onClick={() => {
+                  // No need to change, just show status
+                }}
+                disabled
+              >
+                Zhipu GLM
+              </button>
+              <button
+                className={`px-16 py-8 rounded-8 ${
+                  chatEngine === "OpenAI"
+                    ? "bg-secondary text-white"
+                    : "bg-surface1 hover:bg-surface1-hover"
+                }`}
+                onClick={() => {
+                  // No need to change, just show status
+                }}
+                disabled
+              >
+                OpenAI
+              </button>
+            </div>
+            <div className="text-sm text-text3">
+              Current: {chatEngine}
+              {chatEngine === "Zhipu GLM" && !zhipuKey && (
+                <span className="text-red-500"> - APIキー未設定</span>
+              )}
+              {chatEngine === "OpenAI" && !openAiKey && (
+                <span className="text-red-500"> - APIキー未設定</span>
+              )}
+            </div>
+          </div>
+
           {chatEngine === "OpenAI" && (
             <div className="my-24">
               <div className="my-16 typography-20 font-bold">
@@ -137,6 +185,35 @@ export const Settings = ({
                 Additionally, your API key and conversation content are not
                 stored on pixiv&#39;s servers.
                 <br />* The model currently in use is the ChatGPT API (GPT-3.5).
+              </div>
+            </div>
+          )}
+          {chatEngine === "Zhipu GLM" && (
+            <div className="my-24">
+              <div className="my-16 typography-20 font-bold">
+                Zhipu GLM API Key
+              </div>
+              <input
+                className="text-ellipsis px-16 py-8 w-col-span-2 bg-surface1 hover:bg-surface1-hover rounded-8"
+                type="text"
+                placeholder="your-api-key"
+                value={zhipuKey}
+                onChange={onChangeZhipuKey}
+                disabled={isLoading}
+              />
+              <div>
+                You can create your API key on
+                <Link
+                  url="https://open.bigmodel.cn/"
+                  label="the Zhipu AI website"
+                />
+                . Please enter the created API key in the form below.
+              </div>
+              <div className="my-16">
+                The GLM API is accessed directly from your browser.
+                Additionally, your API key and conversation content are not
+                stored on pixiv&#39;s servers.
+                <br />* The model currently in use is GLM-4.
               </div>
             </div>
           )}

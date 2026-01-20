@@ -18,7 +18,7 @@ async function load() {
   self.postMessage({ status: "device", device });
 
   tts = await KokoroTTS.from_pretrained(model_id, {
-    dtype: device === "wasm" ? "q8" : "fp32", // "fp32" | "fp16" | "q8" | "q4" | "q4f16"
+    dtype: device === "wasm" ? "q8" : "fp32",
     device,
   }).catch((e: Error) => {
     self.postMessage({ status: "error", error: e.message });
@@ -34,7 +34,7 @@ async function generate(e: MessageEvent) {
   }
   const streamer = new TextSplitterStream();
   streamer.push(text);
-  streamer.close(); // Indicate we won't add more text
+  streamer.close();
 
   const stream = tts.stream(streamer, { voice, speed });
   const chunks: { sampling_rate: number; audio: Float32Array }[] = [];
@@ -63,7 +63,7 @@ async function generate(e: MessageEvent) {
     }
 
     // Create a new merged RawAudio
-    // @ts-expect-error - So that we don't need to import RawAudio
+    // @ts-expect-error
     audio = new chunks[0].constructor(waveform, sampling_rate);
   }
   self.postMessage({ status: "complete", audio: audio.toBlob() });

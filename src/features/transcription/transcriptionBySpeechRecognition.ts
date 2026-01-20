@@ -6,6 +6,11 @@ export const useTranscriptionBySpeechRecognition = () => {
     ((value: string | PromiseLike<string>) => void) | null
   >(null);
 
+  const load = useCallback(async () => {
+    // No loading required for SpeechRecognition
+    return Promise.resolve();
+  }, []);
+
   // 音声認識の結果を処理する
   const handleRecognitionResult = useCallback(
     (event: SpeechRecognitionEvent) => {
@@ -50,5 +55,5 @@ export const useTranscriptionBySpeechRecognition = () => {
     speechRecognitionRef.current?.stop();
   }, []);
 
-  return { transcribe, stopTranscribing };
+  return { load, transcribe, stopTranscribing };
 };

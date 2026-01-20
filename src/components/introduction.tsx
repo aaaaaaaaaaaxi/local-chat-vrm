@@ -7,29 +7,40 @@ import { LoadingSpinnerIcon } from "./loadingSpinnerIcon";
 type Props = {
   chatEngine: ChatEngine;
   openAiKey: string;
+  zhipuKey: string;
   voiceEngine: VoiceEngine;
   koeiroMapKey: string;
-  onChangeAiKey: (openAiKey: string) => void;
+  onChangeOpenAiKey: (openAiKey: string) => void;
+  onChangeZhipuKey: (zhipuKey: string) => void;
   onChangeKoeiromapKey: (koeiromapKey: string) => void;
   onLoad: () => Promise<void>;
 };
 export const Introduction = ({
   chatEngine,
   openAiKey,
+  zhipuKey,
   voiceEngine,
   koeiroMapKey,
-  onChangeAiKey,
+  onChangeOpenAiKey,
+  onChangeZhipuKey,
   onChangeKoeiromapKey,
   onLoad,
 }: Props) => {
   const [opened, setOpened] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  const handleAiKeyChange = useCallback(
+  const handleOpenAiKeyChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      onChangeAiKey(event.target.value);
+      onChangeOpenAiKey(event.target.value);
     },
-    [onChangeAiKey]
+    [onChangeOpenAiKey]
+  );
+
+  const handleZhipuKeyChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onChangeZhipuKey(event.target.value);
+    },
+    [onChangeZhipuKey]
   );
 
   const handleKoeiromapKeyChange = useCallback(
@@ -66,9 +77,8 @@ export const Introduction = ({
           </div>
           <div>
             This application leverages the @pixiv/three-vrm library for 3D model
-            rendering and manipulation, and employs Gemini Nano, a locally
-            executed Large Language Model (LLM) operating within the browser
-            environment, for conversational text generation and voice synthesis.
+            rendering and manipulation, and supports multiple AI engines including
+            Zhipu GLM and OpenAI for conversational text generation and voice synthesis.
           </div>
         </div>
 
@@ -83,6 +93,28 @@ export const Introduction = ({
             each model.
           </div>
         </div>
+
+        <div className="my-24">
+          <div className="my-8 font-bold typography-20 text-secondary">
+            AI Engine Status
+          </div>
+          <div className="text-sm">
+            <p>Current: {chatEngine}</p>
+            {(chatEngine === "Zhipu GLM" && !zhipuKey) && (
+              <p className="text-red-500">⚠️ Zhipu GLM APIキーが設定されていません</p>
+            )}
+            {(chatEngine === "OpenAI" && !openAiKey) && (
+              <p className="text-red-500">⚠️ OpenAI APIキーが設定されていません</p>
+            )}
+            {(chatEngine === "Zhipu GLM" && zhipuKey) && (
+              <p className="text-green-500">✓ Zhipu GLM APIキーが設定されています</p>
+            )}
+            {(chatEngine === "OpenAI" && openAiKey) && (
+              <p className="text-green-500">✓ OpenAI APIキーが設定されています</p>
+            )}
+          </div>
+        </div>
+
         {voiceEngine === "Koeiromap" && (
           <div className="my-24">
             <div className="my-8 font-bold typography-20 text-secondary">
@@ -129,6 +161,34 @@ export const Introduction = ({
               Additionally, your API key and conversation content are not stored
               on pixiv&#39;s servers.
               <br />* The model currently in use is the ChatGPT API (GPT-3.5).
+            </div>
+          </div>
+        )}
+        {chatEngine === "Zhipu GLM" && (
+          <div className="my-24">
+            <div className="my-8 font-bold typography-20 text-secondary">
+              Zhipu GLM API Key
+            </div>
+            <input
+              type="text"
+              placeholder="your-api-key"
+              value={zhipuKey}
+              onChange={handleZhipuKeyChange}
+              className="my-4 px-16 py-8 w-full h-40 bg-surface3 hover:bg-surface3-hover rounded-4 text-ellipsis"
+            ></input>
+            <div>
+              You can create your API key on
+              <Link
+                url="https://open.bigmodel.cn/"
+                label="the Zhipu AI website"
+              />
+              . Please enter the created API key in the form below.
+            </div>
+            <div className="my-16">
+              The GLM API is accessed directly from your browser.
+              Additionally, your API key and conversation content are not stored
+              on pixiv&#39;s servers.
+              <br />* The model currently in use is GLM-4.
             </div>
           </div>
         )}

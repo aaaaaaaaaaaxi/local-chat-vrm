@@ -25,12 +25,18 @@ export default function Home() {
   const { viewer } = useContext(ViewerContext);
 
   const [loadingRequired, setLoadingRequired] = useState(true);
+  const [isHandlingLoading, setIsHandlingLoading] = useState(false);
   const [transcriptionEngine] = useState(DEFAULT_TRANSCRIPTION_ENGINE);
   const [chatEngine] = useState(DEFAULT_CHAT_ENGINE);
   const [voiceEngine] = useState(DEFAULT_VOICE_ENGINE);
   const [systemPrompt, setSystemPrompt] = useState(SYSTEM_PROMPT);
-  const [openAiKey, setOpenAiKey] = useState("");
-  const [koeiromapKey, setKoeiromapKey] = useState("");
+  // Initialize from localStorage
+  const savedParams = window.localStorage.getItem("chatVRMParams");
+  const initialParams = savedParams ? JSON.parse(savedParams) : {};
+
+  const [openAiKey, setOpenAiKey] = useState(initialParams.openAiKey ?? "");
+  const [zhipuKey, setZhipuKey] = useState(initialParams.zhipuKey ?? "");
+  const [koeiromapKey, setKoeiromapKey] = useState(initialParams.koeiromapKey ?? "");
   const [koeiroParam, setKoeiroParam] = useState<KoeiroParam>(DEFAULT_PARAM);
   const [chatProcessing, setChatProcessing] = useState(false);
   const [chatLog, setChatLog] = useState<Message[]>([]);
@@ -43,23 +49,73 @@ export default function Home() {
     stopTranscribing,
   } = useTranscription();
 
+  // Main loading handler
+  const handleLoading = useCallback(async () => {
+    if (!loadingRequired || isHandlingLoading) {
+      return;
+    }
+
+    setIsHandlingLoading(true);
+    try {
+      await Promise.all([
+        loadTranscriptionModel(transcriptionEngine),
+        loadChatModel(chatEngine, systemPrompt),
+        speakCharacter.load(voiceEngine),
+      ]);
+      setLoadingRequired(false);
+    } catch (error) {
+      console.error("Error during loading:", error);
+      // Keep loadingRequired true if there's an error
+    } finally {
+      setIsHandlingLoading(false);
+    }
+  }, [
+    chatEngine,
+    voiceEngine,
+    loadChatModel,
+    loadingRequired,
+    isHandlingLoading,
+    loadTranscriptionModel,
+    systemPrompt,
+    transcriptionEngine,
+  ]);
+
+  // Empty onLoad handler for Introduction component
+  const handleOnLoad = useCallback(async () => {
+    // Loading is now handled automatically by the useEffect
+  }, []);
+
+  // Initialize other params from localStorage
   useEffect(() => {
     if (window.localStorage.getItem("chatVRMParams")) {
       const params = JSON.parse(
         window.localStorage.getItem("chatVRMParams") as string
       );
-      setSystemPrompt(params.systemPrompt ?? SYSTEM_PROMPT);
-      setKoeiroParam(params.koeiroParam ?? DEFAULT_PARAM);
-      setChatLog(params.chatLog ?? []);
+      if (systemPrompt === SYSTEM_PROMPT && params.systemPrompt) {
+        setSystemPrompt(params.systemPrompt);
+      }
+      if (koeiroParam === DEFAULT_PARAM && params.koeiroParam) {
+        setKoeiroParam(params.koeiroParam);
+      }
+      if (chatLog.length === 0 && params.chatLog) {
+        setChatLog(params.chatLog);
+      }
     }
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(
       "chatVRMParams",
-      JSON.stringify({ systemPrompt, koeiroParam, chatLog })
+      JSON.stringify({ systemPrompt, koeiroParam, chatLog, openAiKey, zhipuKey })
     );
-  }, [systemPrompt, koeiroParam, chatLog]);
+  }, [systemPrompt, koeiroParam, chatLog, openAiKey, zhipuKey]);
+
+  // Auto-handle loading when loadingRequired becomes true and component mounts
+  useEffect(() => {
+    if (loadingRequired && !isHandlingLoading) {
+      handleLoading();
+    }
+  }, [loadingRequired, isHandlingLoading, handleLoading]);
 
   const handleChangeSystemPrompt = useCallback(
     async (newSystemPrompt: string) => {
@@ -74,6 +130,11 @@ export default function Home() {
 
   const handleChangeOpenAiKey = useCallback((openAiKey: string) => {
     setOpenAiKey(openAiKey);
+    setLoadingRequired(true);
+  }, []);
+
+  const handleChangeZhipuKey = useCallback((zhipuKey: string) => {
+    setZhipuKey(zhipuKey);
     setLoadingRequired(true);
   }, []);
 
@@ -92,27 +153,6 @@ export default function Home() {
     setChatLog([]);
     setLoadingRequired(true);
   }, []);
-
-  const handleLoading = useCallback(async () => {
-    if (!loadingRequired) {
-      return;
-    }
-
-    await Promise.all([
-      loadTranscriptionModel(transcriptionEngine),
-      loadChatModel(chatEngine, systemPrompt),
-      speakCharacter.load(voiceEngine),
-    ]);
-    setLoadingRequired(false);
-  }, [
-    chatEngine,
-    voiceEngine,
-    loadChatModel,
-    loadingRequired,
-    loadTranscriptionModel,
-    systemPrompt,
-    transcriptionEngine,
-  ]);
 
   /**
    * 文ごとに音声を直列でリクエストしながら再生する
@@ -140,10 +180,57 @@ export default function Home() {
     async (text: string) => {
       setChatProcessing(true);
 
-      if (chatEngine === "OpenAI" && !openAiKey) {
-        setAssistantMessage("APIキーが入力されていません");
-        setChatProcessing(false);
-        return;
+          // Check if API key is available for current engine
+      if ((chatEngine === "OpenAI" && !openAiKey) ||
+          (chatEngine === "Zhipu GLM" && !zhipuKey)) {
+        // Check if at least one API key is available
+        if (!openAiKey && !zhipuKey) {
+          setAssistantMessage("APIキーが設定されていません。設定画面でOpenAIまたはZhipu GLMのAPIキーを入力してください。");
+          setChatProcessing(false);
+          return;
+        }
+
+        // Try to switch to an available engine
+        let newEngine = chatEngine;
+        if (chatEngine === "OpenAI" && !openAiKey && zhipuKey) {
+          newEngine = "Zhipu GLM";
+        } else if (chatEngine === "Zhipu GLM" && !zhipuKey && openAiKey) {
+          newEngine = "OpenAI";
+        }
+
+        // Update to the new engine
+        const availableEngine = newEngine;
+        const messageLog: Message[] = [
+          ...chatLog,
+          { role: "user", content: text },
+        ];
+
+        // Try to use the available engine
+        try {
+          const stream = await getChatResponseStream(
+            availableEngine,
+            messageLog,
+            openAiKey,
+            zhipuKey
+          ).catch((e) => {
+            console.error("Stream error:", e);
+            return null;
+          });
+
+          if (!stream) {
+            setAssistantMessage("APIキーの設定に問題があります。設定画面を確認してください。");
+            setChatProcessing(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Switch error:", error);
+          setAssistantMessage("エンジンの切り替えに失敗しました。");
+          setChatProcessing(false);
+          return;
+        }
+      } else {
+        // Clear any previous error message when validation passes
+        setAssistantMessage("");
       }
 
       if (text === "") {
@@ -161,7 +248,8 @@ export default function Home() {
       const stream = await getChatResponseStream(
         chatEngine,
         messageLog,
-        openAiKey
+        openAiKey,
+        zhipuKey
       ).catch((e) => {
         console.error(e);
         return null;
@@ -177,71 +265,117 @@ export default function Home() {
       let tag = "";
       const sentences = new Array<string>();
 
+      // Reset AI text log for new conversation
+      aiTextLog = "";
+
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
           receivedMessage += value;
+          console.log("Received chunk:", value); // Debug: log each chunk
 
-          while (receivedMessage) {
-            // 返答内容のタグ部分の検出
-            const tagMatch = receivedMessage.match(/^\[(.*?)\]/);
-            if (tagMatch && tagMatch[0]) {
-              tag = tagMatch[0];
-              receivedMessage = receivedMessage.slice(tag.length);
-            }
+          // Process all available content in receivedMessage
+          while (receivedMessage && receivedMessage.trim()) {
+            try {
+              // 返答内容のタグ部分の検出
+              const tagMatch = receivedMessage.match(/^\[(.*?)\]/);
+              if (tagMatch && tagMatch[0]) {
+                tag = tagMatch[0];
+                receivedMessage = receivedMessage.slice(tag.length);
+                continue;
+              }
 
-            // 返答を一文単位で切り出して処理する
-            const sentenceMatch = receivedMessage.match(
-              /^(.+[。．！？.!?\n]|.{10,}[、,])/
-            );
-            if (!sentenceMatch || !sentenceMatch[0]) {
+              // 简化的句子分割逻辑
+              let sentence = "";
+              let foundEnd = false;
+
+              // 寻找第一个标点符号或长文本
+              for (let i = 0; i < receivedMessage.length; i++) {
+                const char = receivedMessage[i];
+                sentence += char;
+
+                // 检查是否遇到标点符号
+                if ([ "。", "．", "！", "？", ".", "!", "?", "\n" ].includes(char)) {
+                  foundEnd = true;
+                  break;
+                }
+
+                // 检查是否遇到逗号或其他分隔符
+                if ([ "，", "、", "," ].includes(char) && sentence.length > 5) {
+                  foundEnd = true;
+                  break;
+                }
+
+                // 如果文本足够长，强制分割
+                if (sentence.length >= 20) {
+                  foundEnd = true;
+                  break;
+                }
+              }
+
+              if (!foundEnd) {
+                // 没有找到完整的句子，等待更多数据
+                break;
+              }
+
+              sentences.push(sentence);
+              aiTextLog += `${tag} ${sentence}\n`; // Add to accumulated text
+              receivedMessage = receivedMessage
+                .slice(sentence.length)
+                .trimStart();
+
+              // 発話不要/不可能な文字列だった場合はスキップ
+              if (
+                !sentence.replace(
+                  /^[\s[({「［（【『〈《〔｛«‹〘〚〛〙›»〕》〉』】）］」})\]]+$/g,
+                  ""
+                )
+              ) {
+                continue;
+              }
+
+              const aiText = `${tag} ${sentence}`;
+              console.log("Processing sentence:", aiText); // Debug
+              const aiTalks = textsToScreenplay(
+                voiceEngine,
+                [aiText],
+                koeiroParam
+              );
+
+              // 文ごとに音声を生成 & 再生、返答を表示
+              const currentAssistantMessage = sentences.join(" ");
+              console.log("Speaking sentence:", currentAssistantMessage); // Debug
+              handleSpeakAi(aiTalks[0], () => {
+                setAssistantMessage(currentAssistantMessage);
+              });
+            } catch (e) {
+              console.error("Error processing message:", e);
               break;
             }
-
-            const sentence = sentenceMatch[0];
-            sentences.push(sentence);
-            receivedMessage = receivedMessage
-              .slice(sentence.length)
-              .trimStart();
-
-            // 発話不要/不可能な文字列だった場合はスキップ
-            if (
-              !sentence.replace(
-                /^[\s[({「［（【『〈《〔｛«‹〘〚〛〙›»〕》〉』】）］」})\]]+$/g,
-                ""
-              )
-            ) {
-              continue;
-            }
-
-            const aiText = `${tag} ${sentence}`;
-            const aiTalks = textsToScreenplay(
-              voiceEngine,
-              [aiText],
-              koeiroParam
-            );
-            aiTextLog += aiText;
-
-            // 文ごとに音声を生成 & 再生、返答を表示
-            const currentAssistantMessage = sentences.join(" ");
-            handleSpeakAi(aiTalks[0], () => {
-              setAssistantMessage(currentAssistantMessage);
-            });
           }
         }
       } catch (e) {
         setChatProcessing(false);
-        console.error(e);
+        console.error("Stream processing error:", e);
       } finally {
         reader.releaseLock();
       }
 
+      console.log("Final received message:", receivedMessage); // Debug: log final message
+      console.log("AI text log:", aiTextLog); // Debug: log accumulated text
+      console.log("Sentences array:", sentences); // Debug: log sentences
+
+      // Clean up accumulated text
+      const cleanAiText = aiTextLog.trim() || receivedMessage.trim();
+      console.log("Clean AI text for logging:", cleanAiText);
+
       // アシスタントの返答をログに追加
       const messageLogAssistant: Message[] = [
-        ...messageLog,
-        { role: "assistant", content: aiTextLog },
+        ...chatLog,
+        { role: "user", content: text },
+        { role: "assistant", content: cleanAiText },
       ];
 
       setChatLog(messageLogAssistant);
@@ -264,11 +398,13 @@ export default function Home() {
       <Introduction
         chatEngine={chatEngine}
         openAiKey={openAiKey}
+        zhipuKey={zhipuKey}
         voiceEngine={voiceEngine}
         koeiroMapKey={koeiromapKey}
-        onChangeAiKey={handleChangeOpenAiKey}
+        onChangeOpenAiKey={handleChangeOpenAiKey}
+        onChangeZhipuKey={handleChangeZhipuKey}
         onChangeKoeiromapKey={setKoeiromapKey}
-        onLoad={handleLoading}
+        onLoad={handleOnLoad}
       />
       <VrmViewer />
       <MessageInputContainer
@@ -280,13 +416,15 @@ export default function Home() {
       <Menu
         chatEngine={chatEngine}
         openAiKey={openAiKey}
+        zhipuKey={zhipuKey}
         systemPrompt={systemPrompt}
         chatLog={chatLog}
         koeiroParam={koeiroParam}
         assistantMessage={assistantMessage}
         voiceEngine={voiceEngine}
         koeiromapKey={koeiromapKey}
-        onChangeAiKey={setOpenAiKey}
+        onChangeOpenAiKey={setOpenAiKey}
+        onChangeZhipuKey={setZhipuKey}
         onChangeSystemPrompt={handleChangeSystemPrompt}
         onChangeChatLog={handleChangeChatLog}
         onChangeKoeiromapParam={setKoeiroParam}
@@ -295,7 +433,7 @@ export default function Home() {
           handleChangeSystemPrompt(SYSTEM_PROMPT)
         }
         onChangeKoeiromapKey={setKoeiromapKey}
-        onLoad={handleLoading}
+        onLoad={handleOnLoad}
       />
       <GitHubLink />
     </div>

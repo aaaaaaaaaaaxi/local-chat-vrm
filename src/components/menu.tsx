@@ -11,6 +11,7 @@ import { ChatEngine } from "@/features/chat/chat";
 type Props = {
   chatEngine: ChatEngine;
   openAiKey: string;
+  zhipuKey: string;
   systemPrompt: string;
   chatLog: Message[];
   koeiroParam: KoeiroParam;
@@ -18,7 +19,8 @@ type Props = {
   voiceEngine: VoiceEngine;
   koeiromapKey: string;
   onChangeSystemPrompt: (systemPrompt: string) => void;
-  onChangeAiKey: (key: string) => void;
+  onChangeOpenAiKey: (key: string) => void;
+  onChangeZhipuKey: (key: string) => void;
   onChangeChatLog: (index: number, text: string) => void;
   onChangeKoeiromapParam: (param: KoeiroParam) => void;
   handleClickResetChatLog: () => void;
@@ -29,6 +31,7 @@ type Props = {
 export const Menu = ({
   chatEngine,
   openAiKey,
+  zhipuKey,
   systemPrompt,
   chatLog,
   koeiroParam,
@@ -36,7 +39,8 @@ export const Menu = ({
   voiceEngine,
   koeiromapKey,
   onChangeSystemPrompt,
-  onChangeAiKey,
+  onChangeOpenAiKey,
+  onChangeZhipuKey,
   onChangeChatLog,
   onChangeKoeiromapParam,
   handleClickResetChatLog,
@@ -56,11 +60,18 @@ export const Menu = ({
     [onChangeSystemPrompt]
   );
 
-  const handleAiKeyChange = useCallback(
+  const handleOpenAiKeyChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      onChangeAiKey(event.target.value);
+      onChangeOpenAiKey(event.target.value);
     },
-    [onChangeAiKey]
+    [onChangeOpenAiKey]
+  );
+
+  const handleZhipuKeyChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onChangeZhipuKey(event.target.value);
+    },
+    [onChangeZhipuKey]
   );
 
   const handleChangeKoeiromapKey = useCallback(
@@ -138,6 +149,7 @@ export const Menu = ({
         <Settings
           chatEngine={chatEngine}
           openAiKey={openAiKey}
+          zhipuKey={zhipuKey}
           chatLog={chatLog}
           systemPrompt={systemPrompt}
           voiceEngine={voiceEngine}
@@ -146,7 +158,8 @@ export const Menu = ({
           onClickClose={() => {
             setShowSettings(false);
           }}
-          onChangeAiKey={handleAiKeyChange}
+          onChangeOpenAiKey={handleOpenAiKeyChange}
+          onChangeZhipuKey={handleZhipuKeyChange}
           onChangeSystemPrompt={handleChangeSystemPrompt}
           onChangeChatLog={onChangeChatLog}
           onChangeKoeiroParam={handleChangeKoeiroParam}
