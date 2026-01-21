@@ -41,7 +41,7 @@ export type KokoroTtsTalk = {
 
 export type Talk = KoeiromapTalk | KokoroTtsTalk;
 
-const emotions = ["neutral", "happy", "angry", "sad", "relaxed"] as const;
+const emotions = ["neutral", "happy", "angry", "sad", "relaxed", "surprised"] as const;
 type EmotionType = (typeof emotions)[number] & VRMExpressionPresetName;
 
 /**
@@ -118,6 +118,8 @@ const emotionToTalkStyle = (emotion: EmotionType): KoeiromapTalkStyle => {
       return "happy";
     case "sad":
       return "sad";
+    case "surprised":
+      return "surprised";
     default:
       return "talk";
   }

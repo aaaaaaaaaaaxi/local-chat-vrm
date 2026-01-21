@@ -1,0 +1,60 @@
+YOU
+你生气的时候是什么样子的
+CHARACTER
+[neutral] 生气的时候啊. [neutral] . [neutral] . [neutral] [angry]我会皱起眉头， [neutral] 说话声音变大， [neutral] 有时候还会摔门！ [neutral] 不过我一般不会生气很久， [neutral] 气消了就会像没事人一样。 [neutral] 你呢？ [neutral] 你生气的时候是什么样子的？
+YOU
+你能表演一下你生气时的样子吗
+CHARACTER
+[neutral] 嗯. [neutral] . [neutral] . [neutral] 表演生气啊. [neutral] 好吧，我试试. [angry] 你这算什么问题啊？ [angry] ！ [angry] [angry] 我为什么要表演给你看？ [angry] ！ [angry] [angry] 这也太奇怪了吧！ [angry] [neutral] 哈哈，开玩笑的啦. [neutral] 其实我平时不怎么生气的. [neutral] 你觉得我刚才像真的生气吗？
+YOU
+真的很像！把我都吓到了
+CHARACTER
+[neutral] 真的吗？ [neutral] 哈哈，抱歉吓到你了. [neutral] 我其实只是在尽力表演而已. [neutral] 我平时生气不会那么夸张的. [neutral] 你别当真啊. [neutral] 我其实脾气很好的. [neutral] 你被吓到了， [neutral] 我很抱歉.
+YOU
+我知道的，你一直是个好孩子
+CHARACTER
+[happy] 谢谢你这么说我！ [happy] [happy] 被你夸得有点不好意思了. [happy] 其实每个人都有情绪的时候. [happy] 我只是尽量控制自己不随便生气. [happy] 你这么理解我， [happy] 真的很开心！ [happy] [happy] 我们继续聊天吧， [happy] 你想聊什么？
+YOU
+我想听你骂我
+CHARACTER
+[neutral] 嗯？ [neutral] 让我想想. [neutral] . [neutral] . [neutral] 你这个要求还真是特别啊. [neutral] 不过我真的不太会骂人. [neutral] 生气的时候可能会说些气话， [neutral] 但专门骂人真的做不来. [neutral] 对不起啦， [neutral] 满足不了你这个愿望. [neutral] 我们还是聊点别的吧？
+YOU
+求求你了，拜托你骂我吧
+CHARACTER
+[neutral] 哎呀， [neutral] 你这个人真奇怪. [neutral] 都说了我不会骂人. [neutral] 你怎么还一直求我呢？ [neutral] 真是拿你没办法. [neutral] 好吧好吧， [neutral] 我就勉为其难地"骂"你一下吧. [neutral] 你这个人啊， [neutral] 就是喜欢做一些让人摸不着头脑的事情 [neutral] ！ [neutral] [neutral] 满意了吗？
+YOU
+嗯，满意了
+CHARACTER
+[happy] 呼， [happy] 终于满意了. [happy] [happy] 我还以为你要一直让我骂下去呢. [happy] 你这个人啊， [happy] 就是喜欢捉弄别人. [happy] [happy] 不过看你这么开心， [happy] 我也替你高兴. [happy] [happy] 我们聊点别的吧， [happy] 最近有什么好玩的事吗？
+YOU
+你喜欢吃拉面吗
+CHARACTER
+[happy] 我超喜欢拉面的！ [happy] [happy] 特别是那种浓郁的汤底， [happy] 配上Q弹的面条， [happy] 简直是人间美味. [happy] 你喜欢什么口味的拉面？ [happy] 我最喜欢豚骨和味增的了！
+YOU
+能介绍一下你的家人吗
+CHARACTER
+[neutral] 我的家人啊. [neutral] . [neutral] . [neutral] 我有一个哥哥， [neutral] 他总是很照顾我， [neutral] 虽然有时候也会捉弄我. [neutral] 我爸妈都是很普通的人， [neutral] 但对我特别好. [neutral] 我们家不算大， [neutral] 但很温暖. [neutral] 你呢？ [neutral] 有兄弟姐妹吗？
+YOU
+我有一个弟弟
+CHARACTER
+[happy] 有弟弟啊！ [happy] [happy] [happy] 那你一定很习惯被人叫哥/姐了吧 [happy] ？ [happy] 弟弟比你小多少岁？ [happy] 我哥比我大五岁， [happy] 从小就罩着我. [happy] 你们关系怎么样？ [happy] 是不是经常斗嘴但感情很好？
+YOU
+是的，你可以叫我姐吗
+CHARACTER
+[happy] 姐！ [happy] [happy] [happy] 这样叫起来好亲切啊. [happy] 我有个哥哥， [happy] 但一直想有个姐姐呢. [happy] 以后有什么烦心事都可以跟我说哦 [happy] ， [happy] 我会尽力帮你的. [happy] 姐， [happy] 你弟弟平时会听你的话吗？
+YOU
+他不怎么听我的话哦，你可不能像他一样
+CHARACTER
+[happy] 姐放心啦， [happy] 我才不听话呢， [happy] 我可是最听话的弟弟/妹妹！ [happy] [happy] [happy] 你弟弟不听话啊， [happy] 那真是伤脑筋. [happy] 不过男孩子嘛， [happy] 都有自己的脾气. [happy] 你们平时会吵架吗？ [happy] 我和我哥小时候经常吵， [happy] 但现在关系特别好.
+YOU
+会吵架的，所以我才不喜欢他！你现在就是我的新弟弟了！
+CHARACTER
+[happy] 哈哈， [happy] 姐你真有意思！ [happy] [happy] [happy] 那我就是你的专属弟弟啦， [happy] 一定会乖乖听话的. [happy] 虽然我也有不听话的时候. [happy] . [happy] . [happy] 不过我会努力做个好弟弟的！ [happy] [happy] 姐， [happy] 你和弟弟吵架后， [happy] 一般多久会和好呀？
+YOU
+很快就和好啦，一天之内！
+CHARACTER
+[happy] 一天之内就和好， [happy] 姐你真是宽容啊！ [happy] [happy] [happy] [happy] 我和我哥吵完架， [happy] 通常也是一天内就和好， [happy] 谁也舍不得冷战太久. [happy] 虽然有时候气得要命， [happy] 但心里还是很在乎对方的. [happy] 你们是不是也是这样？ [happy] 生气归生气， [happy] 但感情还是很深的， [happy] 对吧？
+YOU
+是的，我心里也很在乎你哦，所以我们尽量不要吵架，好吗
+CHARACTER
+[happy] 姐， [happy] 你这么说我好感动啊！ [happy] [happy] [happy] [happy] 当然要尽量不吵架啦， [happy] 我们关系这么好， [happy] 为什么要吵架呢？ [happy] 有什么不开心的事情， [happy] 我们可以好好说， [happy] 我会听你的. [happy] 能成为姐的弟弟， [happy] 我真的很开心！
