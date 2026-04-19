@@ -27,6 +27,9 @@ module.exports = {
         "secondary-disabled": "#FF617F4D",
         base: "#FBE2CA",
         "text-primary": "#514062",
+        "chat-bg": "#e8f4fd",
+        "chat-user": "#856292",
+        "chat-ai": "#f0f0f0",
       },
       fontFamily: {
         M_PLUS_2: ["Montserrat", "M_PLUS_2", "sans-serif"],

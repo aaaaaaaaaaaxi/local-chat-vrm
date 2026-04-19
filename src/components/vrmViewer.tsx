@@ -8,7 +8,7 @@ export default function VrmViewer() {
     (canvas: HTMLCanvasElement) => {
       if (canvas) {
         viewer.setup(canvas);
-        viewer.loadVrm("./AvatarSample_B.vrm");
+        viewer.loadVrm("./VRoid_V110_Female_v1.1.3.vrm");
 
         // Drag and DropでVRMを差し替え
         canvas.addEventListener("dragover", function (event) {
@@ -41,7 +41,7 @@ export default function VrmViewer() {
   );
 
   return (
-    <div className={"absolute top-0 left-0 w-screen h-[100svh] -z-10"}>
+    <div className={"w-full h-full"}>
       <canvas ref={canvasRef} className={"h-full w-full"}></canvas>
     </div>
   );

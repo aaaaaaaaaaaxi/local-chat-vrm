@@ -66,17 +66,8 @@ export const Settings = ({
   }, [onClickClose, onLoad]);
 
   return (
-    <div className="absolute z-40 w-full h-full bg-white/80 backdrop-blur ">
-      <div className="absolute m-24">
-        <IconButton
-          iconName="24/Close"
-          isProcessing={false}
-          onClick={handleClickCloseButton}
-          disabled={isLoading}
-        ></IconButton>
-      </div>
-      <div className="max-h-full overflow-auto">
-        <div className="text-text1 max-w-3xl mx-auto px-24 py-64 ">
+    <div>
+      <div className="text-text1 max-w-3xl mx-auto">
           <div className="my-24 typography-32 font-bold">Overview</div>
           <div className="my-16 typography-20 font-bold">About VRoid</div>
           <div>
@@ -373,7 +364,6 @@ export const Settings = ({
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 };

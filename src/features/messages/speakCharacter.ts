@@ -118,6 +118,9 @@ const createSpeakCharacter = () => {
   return {
     load,
     speak,
+    destroy: () => {
+      kokoroTts.terminate();
+    },
   };
 };
 

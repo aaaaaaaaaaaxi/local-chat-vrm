@@ -10,4 +10,15 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "three-vendor": ["three", "@pixiv/three-vrm"],
+          "openai": ["openai"],
+          "kokoro": ["kokoro-js"],
+        },
+      },
+    },
+  },
 });

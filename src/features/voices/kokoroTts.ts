@@ -63,6 +63,9 @@ const createKokoroTts = () => {
         });
       });
     },
+    terminate: () => {
+      kokoroWorker.terminate();
+    },
   };
 };
 

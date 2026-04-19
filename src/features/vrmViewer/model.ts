@@ -44,10 +44,26 @@ export class Model {
   }
 
   public unLoadVrm() {
+    if (this.mixer) {
+      this.mixer.stopAllAction();
+      this.mixer = undefined;
+    }
     if (this.vrm) {
       VRMUtils.deepDispose(this.vrm.scene);
       this.vrm = null;
     }
+  }
+
+  public destroy(): void {
+    if (this._lipSync) {
+      if (this._lipSync.audio.state !== 'closed') {
+        this._lipSync.audio.close();
+      }
+      this._lipSync = undefined;
+    }
+    this.onPlaybackUpdate = null;
+    this.emoteController = undefined;
+    this.unLoadVrm();
   }
 
   /**
@@ -55,7 +71,7 @@ export class Model {
    *
    * https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm_animation-1.0/README.ja.md
    */
-  public async loadAnimation(vrmAnimation: VRMAnimation): Promise<void> {
+  public async loadAnimation(vrmAnimation: VRMAnimation): Promise<THREE.AnimationAction> {
     const { vrm, mixer } = this;
     if (vrm == null || mixer == null) {
       throw new Error("You have to load VRM first");
@@ -64,6 +80,7 @@ export class Model {
     const clip = vrmAnimation.createAnimationClip(vrm);
     const action = mixer.clipAction(clip);
     action.play();
+    return action;
   }
 
   /**
@@ -78,13 +95,18 @@ export class Model {
     });
   }
 
-  public update(delta: number): void {
-    if (this._lipSync) {
-      const { volume } = this._lipSync.update();
-      this.emoteController?.lipSync("aa", volume);
-    }
+  public onPlaybackUpdate: ((delta: number) => void) | null = null;
 
-    this.emoteController?.update(delta);
+  public update(delta: number): void {
+    if (this.onPlaybackUpdate) {
+      this.onPlaybackUpdate(delta);
+    } else {
+      if (this._lipSync) {
+        const { volume } = this._lipSync.update();
+        this.emoteController?.lipSync("aa", volume);
+      }
+      this.emoteController?.update(delta);
+    }
     this.mixer?.update(delta);
     this.vrm?.update(delta);
   }

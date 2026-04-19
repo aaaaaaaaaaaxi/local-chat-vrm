@@ -24,4 +24,8 @@ export class EmoteController {
   public update(delta: number) {
     this._expressionController.update(delta);
   }
+
+  public setAutoBlink(enabled: boolean) {
+    this._expressionController.setAutoBlink(enabled);
+  }
 }

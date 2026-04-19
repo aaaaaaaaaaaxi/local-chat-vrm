@@ -8,15 +8,20 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
  *
  * setup()でcanvasを渡してから使う
  */
+const MAX_PIXEL_RATIO = 2;
+
 export class Viewer {
   public isReady: boolean;
   public model?: Model;
+  public idleAction?: THREE.AnimationAction;
 
   private _renderer?: THREE.WebGLRenderer;
   private _clock: THREE.Clock;
   private _scene: THREE.Scene;
   private _camera?: THREE.PerspectiveCamera;
   private _cameraControls?: OrbitControls;
+  private _animationFrameId: number | null = null;
+  private _onResize: (() => void) | null = null;
 
   constructor() {
     this.isReady = false;
@@ -59,12 +64,9 @@ export class Viewer {
       this._scene.add(this.model.vrm.scene);
 
       const vrma = await loadVRMAnimation("./idle_loop.vrma");
-      if (vrma) this.model.loadAnimation(vrma);
-
-      // HACK: アニメーションの原点がずれているので再生後にカメラ位置を調整する
-      requestAnimationFrame(() => {
-        this.resetCamera();
-      });
+      if (vrma) {
+        this.idleAction = await this.model.loadAnimation(vrma);
+      }
     });
   }
 
@@ -89,12 +91,12 @@ export class Viewer {
       antialias: true,
     });
     this._renderer.setSize(width, height);
-    this._renderer.setPixelRatio(window.devicePixelRatio);
+    this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
 
     // camera
-    this._camera = new THREE.PerspectiveCamera(20.0, width / height, 0.1, 20.0);
-    this._camera.position.set(0, 1.3, 1.5);
-    this._cameraControls?.target.set(0, 1.3, 0);
+    this._camera = new THREE.PerspectiveCamera(30.0, width / height, 0.1, 20.0);
+    this._camera.position.set(0, 1.35, 1.6);
+    this._cameraControls?.target.set(0, 1.2, 0);
     this._cameraControls?.update();
     // camera controls
     this._cameraControls = new OrbitControls(
@@ -104,9 +106,8 @@ export class Viewer {
     this._cameraControls.screenSpacePanning = true;
     this._cameraControls.update();
 
-    window.addEventListener("resize", () => {
-      this.resize();
-    });
+    this._onResize = () => { this.resize(); };
+    window.addEventListener("resize", this._onResize);
     this.isReady = true;
     this.update();
   }
@@ -120,7 +121,7 @@ export class Viewer {
     const parentElement = this._renderer.domElement.parentElement;
     if (!parentElement) return;
 
-    this._renderer.setPixelRatio(window.devicePixelRatio);
+    this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
     this._renderer.setSize(
       parentElement.clientWidth,
       parentElement.clientHeight
@@ -151,7 +152,7 @@ export class Viewer {
   }
 
   public update = () => {
-    requestAnimationFrame(this.update);
+    this._animationFrameId = requestAnimationFrame(this.update);
     const delta = this._clock.getDelta();
     // update vrm components
     if (this.model) {
@@ -162,4 +163,34 @@ export class Viewer {
       this._renderer.render(this._scene, this._camera);
     }
   };
+
+  public destroy(): void {
+    if (this._animationFrameId !== null) {
+      cancelAnimationFrame(this._animationFrameId);
+      this._animationFrameId = null;
+    }
+
+    if (this._onResize) {
+      window.removeEventListener("resize", this._onResize);
+      this._onResize = null;
+    }
+
+    if (this.model) {
+      this.model.destroy();
+      this.model = undefined;
+    }
+
+    if (this._cameraControls) {
+      this._cameraControls.dispose();
+      this._cameraControls = undefined;
+    }
+
+    if (this._renderer) {
+      this._renderer.dispose();
+      this._renderer = undefined;
+    }
+
+    this._camera = undefined;
+    this.isReady = false;
+  }
 }

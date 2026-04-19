@@ -73,4 +73,8 @@ export class ExpressionController {
       this._expressionManager?.setValue(this._currentLipSync.preset, weight);
     }
   }
+
+  public setAutoBlink(enabled: boolean) {
+    this._autoBlink?.setEnable(enabled);
+  }
 }

@@ -4,161 +4,82 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LocalChatVRM is a web-based application that enables users to converse with 3D characters (VRM models) directly in their browser. It was developed for technical demonstration purposes and showcased at Google I/O 2025. The application is currently archived but available for forking and further development.
+LocalChatVRM is a web-based 3D character chat demo (showcased at Google I/O 2025). Users converse with VRM models in-browser via text input, AI-generated responses, speech synthesis, and real-time facial animation. Originally based on [pixiv/ChatVRM](https://github.com/pixiv/ChatVRM).
+
+The current main page (`src/pages/test.tsx`) is a **Suzaku Simulation Test** — a 3-round scripted playback system using pre-cached assets (text, ARKit blendshapes, VRMA animations, audio) rather than live AI chat.
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server (Vite hot reload)
-npm run dev
-
-# Build for production
-npm run build
-
-# Lint code with ESLint
-npm run lint
+npm install          # Install dependencies
+npm run dev          # Start Vite dev server (http://localhost:5173)
+npm run build        # Production build
+npm run lint         # ESLint (eslint . --ext ts,tsx)
 ```
 
-**Node.js Requirement:** Node 22.14.0 is specified in package.json engines field
+Node 22.14.0 required (engines field). No test runner configured.
 
-## Architecture Overview
+## Architecture
 
-### Core Architecture
-
-The application follows a modular feature-based architecture with React hooks for state management:
+### Data Flow (Live Chat Mode)
 
 ```
-src/
-├── components/          # UI components
-├── features/           # Core feature modules (business logic)
-├── lib/                # Utility libraries and plugins
-├── pages/              # Application pages
-├── styles/             # Global styles
-└── utils/              # Utility functions
+User text/voice → Chat engine (Zhipu GLM / OpenAI) → AI response with emotion tags
+→ textsToScreenplay() parses [emotion]text into Screenplay objects
+→ speakCharacter.speak() → TTS (Kokoro.js or Koeiromap) → audio buffer
+→ Model.speak() → EmoteController plays expression + LipSync plays audio
+→ Model.update() per-frame: lip sync volume → mouth blendshape, emote update, VRM update
 ```
 
-### Key Feature Modules
+### Data Flow (Test Playback Mode — current default)
 
-1. **Chat Engine** (`src/features/chat/`)
-   - Pluggable architecture supporting multiple AI providers
-   - `chat.ts`: Main orchestrator with engine abstraction
-   - `geminiNanoChat.ts`: Chrome's built-in AI integration
-   - `zhipuGlmChat.ts`: Zhipu GLM API integration
-   - `openAiChat.ts`: OpenAI API fallback
+```
+Page load → preloadAll() fetches /test/{text,arkit,vrma,audio}/test{1,2,3}.*
+User sends message → playRound(round, model, idleAction, callback)
+→ Loads VRMA animation + ARKit expression tracks → plays as single clip
+→ Plays cached WAV audio → on complete, restores idle animation
+```
 
-2. **Speech Recognition** (`src/features/transcription/`)
-   - Multiple engine support:
-     - `transcriptionByGeminiNano.ts`: Chrome's multimodal APIs
-     - `transcriptionBySpeechRecognition.ts`: Web Speech API fallback
-   - Configure default engine via `DEFAULT_TRANSCRIPTION_ENGINE` constant
+### Key Modules
 
-3. **3D Character Rendering** (`src/features/vrmViewer/`)
-   - `viewer.ts`: Three.js/VRM model management
-   - `viewerContext.ts`: React context for 3D scene state
-   - Drag-and-drop VRM file replacement support
+- **`src/features/chat/`** — Pluggable chat engine. `chat.ts` is the abstraction layer switching between `zhipuGlmChat.ts` (default, `glm-4`) and `openAiChat.ts`. Engines return a `ReadableStream<string>` for streaming responses.
 
-4. **Speech Synthesis** (`src/features/messages/`)
-   - Kokoro.js integration for Japanese voice synthesis
-   - Emotional expression parsing from AI responses
-   - Sentence-by-sentence streaming playback
+- **`src/features/vrmViewer/`** — `Viewer` (Three.js scene/renderer/camera/OrbitControls), `Model` (VRM loading, animation, lip sync, emote controller). `viewerContext.ts` provides React context. Idle animation loaded from `./idle_loop.vrma`.
 
-5. **Lip Sync & Emotions** (`src/features/lipSync/`, `src/features/emoteController/`)
-   - Real-time lip synchronization with speech
-   - Emotional expression control based on AI response tags
-   - Auto-blinking and gaze tracking
+- **`src/features/emoteController/`** — `EmoteController` → `ExpressionController` manages VRM blendshape expressions, auto-blinking, and gaze tracking. Emotions: neutral, happy, angry, sad, relaxed, surprised.
 
-### Application Flow
+- **`src/features/messages/`** — `messages.ts` defines `Screenplay` type (expression + talk), `textsToScreenplay()` parses `[emotion]text` format. `speakCharacter.ts` is a singleton managing sequential audio fetch-and-play with pre-fetching for smooth playback.
 
-1. **Initialization**: Load VRM model, initialize speech synthesis
-2. **User Input**: Speech transcription via Web Speech API
-3. **AI Processing**: Generate response with emotional tags using Zhipu GLM or OpenAI
-4. **Character Response**:
-   - Parse emotional tags (e.g., `[smile]`, `[surprised]`)
-   - Generate speech synthesis with appropriate voice parameters
-   - Apply corresponding facial expressions and animations
+- **`src/features/voices/`** — Two TTS engines: `kokoroTts.ts` (local, via Web Worker) and `koeiromapSynthesizeVoice.ts` (cloud API). Default: Kokoro TTS with voice `af_heart`.
 
-### Technology Stack
+- **`src/features/lipSync/`** — `LipSync` class decodes audio ArrayBuffer, analyzes volume per frame for mouth blendshapes.
 
-- **Frontend**: React 19.1.0 with TypeScript strict mode
-- **Build**: Vite 6.2.4 with React plugin
-- **3D**: Three.js 0.176.0 with @pixiv/three-vrm 3.4.0
-- **AI**: Zhipu GLM API, OpenAI API (fallback)
-- **Speech**: Kokoro.js (synthesis), Web Speech API (transcription)
-- **UI**: Tailwind CSS 3.3.1 with Charcoal UI components
-- **State**: React hooks with localStorage persistence
+- **`src/features/testPlayback/`** — Pre-cached 3-round playback system. `preloadAll()` fetches all assets upfront, `playRound()` composes VRMA + ARKit expression tracks into a single animation clip.
 
-## AI Engine Options
+- **`src/features/transcription/`** — Voice input abstraction. Web Speech API (default) or Gemini Nano (disabled).
 
-## Disabled Features
+- **`src/lib/VRMAnimation/`** — Custom `.vrma` file loader (VRMC_vrm_animation spec).
 
-Due to the unavailability of Chrome's Built-in AI Multimodal APIs, the following features have been disabled:
+- **`src/lib/VRMLookAtSmootherLoaderPlugin/`** — Smooth gaze-following plugin for VRM lookAt.
 
-- **Gemini Nano Chat Engine**: Chrome's local AI integration for chat
-- **Gemini Nano Transcription**: Chrome's multimodal audio transcription
-- All local AI processing functionality
+### System Prompt & Emotion Tags
 
-The application now uses:
-- **Web Speech API** for voice transcription
-- **Zhipu GLM** (default) or **OpenAI API** for chat functionality
+The system prompt (`src/features/constants/systemPromptConstants.ts`) instructs the AI to respond as a close friend with emotion tags. Format: `[{neutral|happy|angry|sad|relaxed|surprised}]{dialogue}`. The `textsToScreenplay()` function splits on sentence endings (`。．！？\n`) and carries forward the last emotion tag if none specified.
 
-The application supports two AI engines:
+### Chat Engine Configuration
 
-1. **Zhipu GLM** (Default)
-   - API endpoint: `https://open.bigmodel.cn/api/paas/v4/chat/completions`
-   - Model: `glm-4`
-   - Requires API key from Zhipu AI platform
-   - Streaming responses supported
+- Default engine: `DEFAULT_CHAT_ENGINE = "Zhipu GLM"` in `src/features/chat/chat.ts`
+- Default voice engine: `DEFAULT_VOICE_ENGINE = "Kokoro TTS"` in `src/features/messages/messages.ts`
+- Default transcription engine in `src/features/transcription/transcription.ts`
+- Settings UI in `src/components/settings.tsx` (currently disabled in demo mode)
 
-2. **OpenAI**
-   - API endpoint: `https://api.openai.com/v1/chat/completions`
-   - Model: `gpt-3.5-turbo`
-   - Requires API key from OpenAI
-   - Streaming responses supported
+### State Management
 
-The default engine can be changed by modifying `DEFAULT_CHAT_ENGINE` in `src/features/chat/chat.ts`.
+No external state library. React hooks + `useState`/`useContext`. `ViewerContext` provides the 3D viewer instance. Settings stored in `localStorage`.
 
 ## Important Configuration
 
-### Path Aliases
-Vite is configured with `@` alias pointing to `./src`:
-```typescript
-// Import from src directory
-import { useChat } from "@/features/chat/chat";
-```
-
-### Environment Requirements
-- **Web Browser**: Modern browser with Web Speech API support
-- **WebGPU Support**: Recommended for optimal 3D performance
-- **AI API Access**: Zhipu AI or OpenAI API key required for chat functionality
-
-### Key Dependencies
-- `@pixiv/three-vrm`: VRM model rendering and animation
-- `kokoro-js`: Japanese speech synthesis with emotional control
-- `openai`: OpenAI API integration for fallback mode
-- `three`: Core 3D rendering engine
-
-## Development Notes
-
-### VRM Model Support
-- Models loaded via drag-and-drop or file input
-- Supports standard VRM 1.0 format
-- Character expressions and emotions mapped to VRM blendshapes
-
-### Speech Processing
-- **Input**: Web Speech API
-- **Output**: Kokoro.js with Koeiro parameters for voice control
-- **Emotion Tags**: Parsed from AI responses and applied to character expressions
-
-### AI Engine Selection
-- Default: Zhipu GLM
-- Alternative option: OpenAI API
-- API keys required for both engines
-- Switchable via settings UI with immediate effect
-
-### Browser Compatibility
-- All modern browsers with Web Speech API support
-- No Chrome-specific AI dependencies
-- Production build available on GitHub Pages
+- **Path alias**: `@` → `./src` (configured in both `vite.config.ts` and `tsconfig.json`)
+- **Build chunking**: Three.js, OpenAI, and Kokoro are split into separate vendor chunks
+- **TypeScript**: Strict mode, target ES2015, moduleResolution "bundler"
+- **ESLint**: React + TypeScript + Prettier config (see `eslint.config.mjs`)
