@@ -8,12 +8,11 @@ import {
   Screenplay,
 } from "@/features/messages/messages";
 import { speakCharacter } from "@/features/messages/speakCharacter";
-import { MessageInputContainer } from "@/components/messageInputContainer";
 import { SYSTEM_PROMPT } from "@/features/constants/systemPromptConstants";
 import { KoeiroParam, DEFAULT_PARAM } from "@/features/constants/koeiroParam";
-import { Introduction } from "@/components/introduction";
-import { Menu } from "@/components/menu";
-import { GitHubLink } from "@/components/githubLink";
+import { saveChatLog, loadChatLog } from "@/utils/chatStorage";
+import { ChatPanel } from "@/components/chatPanel";
+import { Settings } from "@/components/settings";
 import { Meta } from "@/components/meta";
 import { DEFAULT_CHAT_ENGINE, useChat } from "@/features/chat/chat";
 import {
@@ -35,10 +34,13 @@ export default function Home() {
   const initialParams = savedParams ? JSON.parse(savedParams) : {};
 
   const [openAiKey, setOpenAiKey] = useState(initialParams.openAiKey ?? "");
-  const [zhipuKey, setZhipuKey] = useState(initialParams.zhipuKey ?? "");
+  const [zhipuKey, setZhipuKey] = useState(
+    initialParams.zhipuKey ?? import.meta.env.VITE_ZHIPU_API_KEY ?? ""
+  );
   const [koeiromapKey, setKoeiromapKey] = useState(initialParams.koeiromapKey ?? "");
   const [koeiroParam, setKoeiroParam] = useState<KoeiroParam>(DEFAULT_PARAM);
   const [chatProcessing, setChatProcessing] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [chatLog, setChatLog] = useState<Message[]>([]);
   const [assistantMessage, setAssistantMessage] = useState("");
 
@@ -65,7 +67,6 @@ export default function Home() {
       setLoadingRequired(false);
     } catch (error) {
       console.error("Error during loading:", error);
-      // Keep loadingRequired true if there's an error
     } finally {
       setIsHandlingLoading(false);
     }
@@ -80,10 +81,7 @@ export default function Home() {
     transcriptionEngine,
   ]);
 
-  // Empty onLoad handler for Introduction component
-  const handleOnLoad = useCallback(async () => {
-    // Loading is now handled automatically by the useEffect
-  }, []);
+  const handleOnLoad = useCallback(async () => {}, []);
 
   // Initialize other params from localStorage
   useEffect(() => {
@@ -97,18 +95,29 @@ export default function Home() {
       if (koeiroParam === DEFAULT_PARAM && params.koeiroParam) {
         setKoeiroParam(params.koeiroParam);
       }
-      if (chatLog.length === 0 && params.chatLog) {
-        setChatLog(params.chatLog);
-      }
     }
+    loadChatLog().then((saved) => {
+      if (saved.length > 0) {
+        setChatLog(saved);
+      }
+    });
   }, []);
 
+  // Persist settings to localStorage (without chatLog)
   useEffect(() => {
     window.localStorage.setItem(
       "chatVRMParams",
-      JSON.stringify({ systemPrompt, koeiroParam, chatLog, openAiKey, zhipuKey })
+      JSON.stringify({ systemPrompt, koeiroParam, openAiKey, zhipuKey })
     );
-  }, [systemPrompt, koeiroParam, chatLog, openAiKey, zhipuKey]);
+  }, [systemPrompt, koeiroParam, openAiKey, zhipuKey]);
+
+  // Persist chatLog to IndexedDB with debounce
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      saveChatLog(chatLog);
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [chatLog]);
 
   // Auto-handle loading when loadingRequired becomes true and component mounts
   useEffect(() => {
@@ -116,6 +125,13 @@ export default function Home() {
       handleLoading();
     }
   }, [loadingRequired, isHandlingLoading, handleLoading]);
+
+  // Cleanup audio resources on unmount
+  useEffect(() => {
+    return () => {
+      speakCharacter.destroy();
+    };
+  }, []);
 
   const handleChangeSystemPrompt = useCallback(
     async (newSystemPrompt: string) => {
@@ -274,7 +290,7 @@ export default function Home() {
           if (done) break;
 
           receivedMessage += value;
-          console.log("Received chunk:", value); // Debug: log each chunk
+          console.log("Received chunk:", value);
 
           // Process all available content in receivedMessage
           while (receivedMessage && receivedMessage.trim()) {
@@ -291,24 +307,20 @@ export default function Home() {
               let sentence = "";
               let foundEnd = false;
 
-              // 寻找第一个标点符号或长文本
               for (let i = 0; i < receivedMessage.length; i++) {
                 const char = receivedMessage[i];
                 sentence += char;
 
-                // 检查是否遇到标点符号
                 if ([ "。", "．", "！", "？", ".", "!", "?", "\n" ].includes(char)) {
                   foundEnd = true;
                   break;
                 }
 
-                // 检查是否遇到逗号或其他分隔符
                 if ([ "，", "、", "," ].includes(char) && sentence.length > 5) {
                   foundEnd = true;
                   break;
                 }
 
-                // 如果文本足够长，强制分割
                 if (sentence.length >= 20) {
                   foundEnd = true;
                   break;
@@ -316,17 +328,15 @@ export default function Home() {
               }
 
               if (!foundEnd) {
-                // 没有找到完整的句子，等待更多数据
                 break;
               }
 
               sentences.push(sentence);
-              aiTextLog += `${tag} ${sentence}\n`; // Add to accumulated text
+              aiTextLog += `${tag} ${sentence}\n`;
               receivedMessage = receivedMessage
                 .slice(sentence.length)
                 .trimStart();
 
-              // 発話不要/不可能な文字列だった場合はスキップ
               if (
                 !sentence.replace(
                   /^[\s[({「［（【『〈《〔｛«‹〘〚〛〙›»〕》〉』】）］」})\]]+$/g,
@@ -337,16 +347,14 @@ export default function Home() {
               }
 
               const aiText = `${tag} ${sentence}`;
-              console.log("Processing sentence:", aiText); // Debug
+              console.log("Processing sentence:", aiText);
               const aiTalks = textsToScreenplay(
                 voiceEngine,
                 [aiText],
                 koeiroParam
               );
 
-              // 文ごとに音声を生成 & 再生、返答を表示
               const currentAssistantMessage = sentences.join(" ");
-              console.log("Speaking sentence:", currentAssistantMessage); // Debug
               handleSpeakAi(aiTalks[0], () => {
                 setAssistantMessage(currentAssistantMessage);
               });
@@ -363,9 +371,9 @@ export default function Home() {
         reader.releaseLock();
       }
 
-      console.log("Final received message:", receivedMessage); // Debug: log final message
-      console.log("AI text log:", aiTextLog); // Debug: log accumulated text
-      console.log("Sentences array:", sentences); // Debug: log sentences
+      console.log("Final received message:", receivedMessage);
+      console.log("AI text log:", aiTextLog);
+      console.log("Sentences array:", sentences);
 
       // Clean up accumulated text
       const cleanAiText = aiTextLog.trim() || receivedMessage.trim();
@@ -393,49 +401,184 @@ export default function Home() {
   );
 
   return (
-    <div className={"font-M_PLUS_2"}>
+    <div className="relative h-screen w-screen overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
       <Meta />
-      <Introduction
-        chatEngine={chatEngine}
-        openAiKey={openAiKey}
-        zhipuKey={zhipuKey}
-        voiceEngine={voiceEngine}
-        koeiroMapKey={koeiromapKey}
-        onChangeOpenAiKey={handleChangeOpenAiKey}
-        onChangeZhipuKey={handleChangeZhipuKey}
-        onChangeKoeiromapKey={setKoeiromapKey}
-        onLoad={handleOnLoad}
-      />
-      <VrmViewer />
-      <MessageInputContainer
-        transcribe={transcribe}
-        stopTranscribing={handleStopTranscribing}
-        isChatProcessing={chatProcessing}
-        onChatProcessStart={handleSendChat}
-      />
-      <Menu
-        chatEngine={chatEngine}
-        openAiKey={openAiKey}
-        zhipuKey={zhipuKey}
-        systemPrompt={systemPrompt}
-        chatLog={chatLog}
-        koeiroParam={koeiroParam}
-        assistantMessage={assistantMessage}
-        voiceEngine={voiceEngine}
-        koeiromapKey={koeiromapKey}
-        onChangeOpenAiKey={setOpenAiKey}
-        onChangeZhipuKey={setZhipuKey}
-        onChangeSystemPrompt={handleChangeSystemPrompt}
-        onChangeChatLog={handleChangeChatLog}
-        onChangeKoeiromapParam={setKoeiroParam}
-        handleClickResetChatLog={handleResetChatLog}
-        handleClickResetSystemPrompt={() =>
-          handleChangeSystemPrompt(SYSTEM_PROMPT)
+      {/* Background decorations */}
+      <div className="bg-pattern" />
+      <div className="wave-header" />
+
+      {/* Top Navigation */}
+      <header className="absolute top-5 left-5 right-5 flex justify-between items-center z-[100]">
+        <div className="flex items-center gap-2 font-bold text-lg" style={{ color: "#334155" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Suzaku
+        </div>
+        <div className="flex gap-3">
+          {/* Upload VRM */}
+          <button
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = ".vrm";
+              input.onchange = (e) => {
+                const f = (e.target as HTMLInputElement).files?.[0];
+                if (f && f.name.split(".").pop() === "vrm") {
+                  const url = URL.createObjectURL(new Blob([f], { type: "application/octet-stream" }));
+                  viewer.loadVrm(url);
+                }
+              };
+              input.click();
+            }}
+            className="action-btn px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium shadow-sm cursor-pointer"
+            style={{ color: "#475569" }}
+            title="Upload VRM"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Upload VRM
+          </button>
+          {/* Clear Chat */}
+          <button
+            onClick={handleResetChatLog}
+            className="action-btn px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium shadow-sm cursor-pointer"
+            style={{ color: "#475569" }}
+            title="Clear chat"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              <line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" />
+            </svg>
+            Clear
+          </button>
+          {/* Settings */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="action-btn px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium shadow-sm cursor-pointer"
+            style={{ color: "#475569" }}
+            title="Settings"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Settings
+          </button>
+        </div>
+      </header>
+
+      {/* Main Grid Layout: VRM left, Chat right */}
+      <main className="grid h-screen w-screen p-5 gap-5 box-border relative z-20" style={{ gridTemplateColumns: "1fr 450px" }}>
+        {/* Left: VRM Character */}
+        <section className="flex items-center justify-center relative overflow-hidden">
+          <VrmViewer />
+        </section>
+
+        {/* Right: Chat Panel */}
+        <section className="flex flex-col overflow-hidden" style={{
+          background: "rgba(255, 255, 255, 0.6)",
+          backdropFilter: "blur(10px)",
+          borderRadius: "24px",
+          border: "1px solid rgba(255, 255, 255, 0.8)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.05)",
+        }}>
+          <ChatPanel
+            chatLog={chatLog}
+            assistantMessage={assistantMessage}
+            isChatProcessing={chatProcessing}
+            transcribe={transcribe}
+            stopTranscribing={stopTranscribing}
+            onChatProcessStart={handleSendChat}
+            onClearChat={handleResetChatLog}
+          />
+        </section>
+      </main>
+
+      {/* Settings Dialog */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center fade-in"
+          style={{ background: "rgba(15, 23, 42, 0.18)", backdropFilter: "blur(6px)" }}
+        >
+          <div
+            className="rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto m-4 chat-scroll fade-scale"
+            style={{
+              background: "rgba(255, 255, 255, 0.92)",
+              backdropFilter: "blur(20px)",
+              border: "1.5px solid rgba(148, 163, 184, 0.2)",
+              boxShadow: "0 16px 48px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <div
+              className="sticky top-0 rounded-t-2xl px-6 py-4 flex items-center justify-between z-10"
+              style={{ background: "rgba(255,255,255,0.95)", borderBottom: "1px solid rgba(148, 163, 184, 0.15)" }}
+            >
+              <h2 className="text-sm font-semibold tracking-wide" style={{ color: "#334155" }}>
+                Settings
+              </h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                style={{ color: "#94a3b8" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <Settings
+                chatEngine={chatEngine}
+                openAiKey={openAiKey}
+                zhipuKey={zhipuKey}
+                chatLog={chatLog}
+                systemPrompt={systemPrompt}
+                voiceEngine={voiceEngine}
+                koeiroParam={koeiroParam}
+                koeiromapKey={koeiromapKey}
+                onClickClose={() => setShowSettings(false)}
+                onChangeOpenAiKey={(e) => setOpenAiKey(e.target.value)}
+                onChangeZhipuKey={(e) => setZhipuKey(e.target.value)}
+                onChangeSystemPrompt={(e) => handleChangeSystemPrompt(e.target.value)}
+                onChangeChatLog={handleChangeChatLog}
+                onChangeKoeiroParam={(x, y) => setKoeiroParam({ speakerX: x, speakerY: y })}
+                onClickOpenVrmFile={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = ".vrm";
+                  input.onchange = (e) => {
+                    const f = (e.target as HTMLInputElement).files?.[0];
+                    if (f && f.name.split(".").pop() === "vrm") {
+                      const url = URL.createObjectURL(new Blob([f], { type: "application/octet-stream" }));
+                      viewer.loadVrm(url);
+                    }
+                  };
+                  input.click();
+                }}
+                onClickResetChatLog={handleResetChatLog}
+                onClickResetSystemPrompt={() => handleChangeSystemPrompt(SYSTEM_PROMPT)}
+                onChangeKoeiromapKey={(e) => setKoeiromapKey(e.target.value)}
+                onLoad={handleOnLoad}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: hide VRM on small screens */}
+      <style>{`
+        @media (max-width: 1024px) {
+          main { grid-template-columns: 1fr !important; }
+          section:first-child { display: none; }
+          .bottom-action { display: none; }
         }
-        onChangeKoeiromapKey={setKoeiromapKey}
-        onLoad={handleOnLoad}
-      />
-      <GitHubLink />
+      `}</style>
     </div>
   );
 }
